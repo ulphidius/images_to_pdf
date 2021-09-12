@@ -9,7 +9,7 @@ def merge_pdf_files(chapters_files, output_filename):
         merger.append(
             fileobj=file,
             bookmark=file.getDocumentInfo().title,
-            import_bookmarks=False
+            import_bookmarks=True
         )
 
     with open(output_filename, 'wb') as output_file:

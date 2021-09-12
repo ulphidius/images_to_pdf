@@ -1,6 +1,7 @@
 from os import listdir
 from os.path import isdir
 from logging import INFO, getLogger
+from posixpath import split
 import click
 
 from .logging.logger import init_logger
@@ -63,12 +64,16 @@ def convert_to_pdf(context_object, images_path, pdf_path):
 
     for folder in raw_images_folders:
         chapter_number = folder.split(' ')[1]
-        pdf_filename = '{}/{}.pdf'.format(pdf_path, chapter_number)
+        pdf_filename = '{}/Chapter {}.pdf'.format(pdf_path, chapter_number)
 
         context_object['LOGGER'].info('Start of the creation %s', pdf_filename)
         context_object['LOGGER'].debug('Chapter number: %s', chapter_number)
 
-        raw_images_path = sorted(get_list_of_relative_path(get_relative_path(images_path, folder)))
+        raw_images_path = sorted(
+            get_list_of_relative_path(
+                get_relative_path(images_path, folder)
+            )
+        )
 
         context_object['LOGGER'].debug(raw_images_path)
 
@@ -86,7 +91,14 @@ def convert_to_pdf(context_object, images_path, pdf_path):
     '--filename',
     '-f',
     required=True,
+    type=str,
     help='File name of the book'
+)
+@click.option(
+    '--chapter-range',
+    '-c',
+    type=(int, int),
+    help='Range of chapter number mix and max include'
 )
 @click.argument(
     'pdf_files',
@@ -97,11 +109,43 @@ def convert_to_pdf(context_object, images_path, pdf_path):
         readable=True
     )
 )
-def merge_pdf(context_object, filename, pdf_files):
+def merge_pdf(context_object, filename, chapter_range, pdf_files):
     """Command to merge pdf chapter into one pdf book"""
+    if chapter_range[0] > chapter_range[1]:
+        raise click.exceptions.BadParameter('Min of --chapter-range cannot be upper than Max')
+
+    if chapter_range[0] == chapter_range[1]:
+        context_object['LOGGER'].warn('The min and the max value of range are the same. In this case --chapter-range is useless.')
+
     context_object['LOGGER'].info('Start merge of input files')
     context_object['LOGGER'].debug(pdf_files)
 
-    merge_pdf_files(list(pdf_files), filename)
+    filtered_files = sorted(
+        list(
+            filter(
+                lambda chapter_number: bool(chapter_number[1] <= chapter_range[1]) \
+                    and bool(chapter_number[1] >= chapter_range[0]),
+                map(
+                    lambda file: (file, int(file.split(' ')[-1].split('.')[0])),
+                    filter(
+                        lambda file: bool(file.split(' ')[-1].split('.')[0].isdigit()),
+                        pdf_files
+                    )
+                )
+            )
+        ), key=lambda file: file[1]
+    )
+
+    context_object['LOGGER'].debug(filtered_files)
+
+    merge_pdf_files(
+        list(
+            map(
+                lambda file_path: file_path[0],
+                filtered_files
+            )
+        ),
+        filename
+    )
 
     context_object['LOGGER'].info('Files merge in %s', filename)
