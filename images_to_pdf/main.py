@@ -98,6 +98,7 @@ def convert_to_pdf(context_object, images_path, pdf_path):
     '--chapter-range',
     '-c',
     type=(int, int),
+    default=None,
     help='Range of chapter number mix and max include'
 )
 @click.argument(
@@ -111,30 +112,45 @@ def convert_to_pdf(context_object, images_path, pdf_path):
 )
 def merge_pdf(context_object, filename, chapter_range, pdf_files):
     """Command to merge pdf chapter into one pdf book"""
-    if chapter_range[0] > chapter_range[1]:
-        raise click.exceptions.BadParameter('Min of --chapter-range cannot be upper than Max')
+    if chapter_range is not None:
+        if chapter_range[0] > chapter_range[1]:
+            raise click.exceptions.BadParameter('Min of --chapter-range cannot be upper than Max')
 
-    if chapter_range[0] == chapter_range[1]:
-        context_object['LOGGER'].warn('The min and the max value of range are the same. In this case --chapter-range is useless.')
+        if chapter_range[0] == chapter_range[1]:
+            context_object['LOGGER'].warn(
+                'The min and the max value of range are the same.' \
+                    + 'In this case --chapter-range is useless.'
+            )
 
     context_object['LOGGER'].info('Start merge of input files')
     context_object['LOGGER'].debug(pdf_files)
 
-    filtered_files = sorted(
-        list(
-            filter(
-                lambda chapter_number: bool(chapter_number[1] <= chapter_range[1]) \
-                    and bool(chapter_number[1] >= chapter_range[0]),
-                map(
-                    lambda file: (file, int(file.split(' ')[-1].split('.')[0])),
-                    filter(
-                        lambda file: bool(file.split(' ')[-1].split('.')[0].isdigit()),
-                        pdf_files
+    if chapter_range is None:
+        filtered_files = sorted(
+            map(
+                lambda file: (file, int(file.split(' ')[-1].split('.')[0])),
+                filter(
+                    lambda file: bool(file.split(' ')[-1].split('.')[0].isdigit()),
+                    pdf_files
+                )
+            ), key=lambda file: file[1]
+        )
+    else:
+        filtered_files = sorted(
+            list(
+                filter(
+                    lambda chapter_number: bool(chapter_number[1] <= chapter_range[1]) \
+                        and bool(chapter_number[1] >= chapter_range[0]),
+                    map(
+                        lambda file: (file, int(file.split(' ')[-1].split('.')[0])),
+                        filter(
+                            lambda file: bool(file.split(' ')[-1].split('.')[0].isdigit()),
+                            pdf_files
+                        )
                     )
                 )
-            )
-        ), key=lambda file: file[1]
-    )
+            ), key=lambda file: file[1]
+        )
 
     context_object['LOGGER'].debug(filtered_files)
 
